@@ -1,10 +1,10 @@
 
 extern crate ad;
 
-use std::num::Float;
+use std::num::FloatMath;
 
 fn main() {
-    let result = ad::grad(|x| { Float::exp(x[0] / x[1]) }, vec![1.0, 2.0]);
+    let result = ad::diff(FloatMath::sin, 0.0);
 
     println!("Out: {}", result);
 }

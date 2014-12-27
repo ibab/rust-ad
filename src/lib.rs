@@ -1,6 +1,7 @@
 #![feature(default_type_params)]
 
 use std::num::Float;
+use std::num::FloatMath;
 use std::num::NumCast;
 use std::num::FpCategory;
 use std::f64;
@@ -199,15 +200,73 @@ impl Float for Num {
     fn to_radians(self) -> Num { Num { val: Float::to_radians(self.val), eps: 0.0 } }
 }
 
+impl FloatMath for Num {
+    fn ldexp(x: Num, exp: int) -> Num { Num { val: FloatMath::ldexp(x.val, exp), eps: FloatMath::ldexp(x.eps, exp) } }
+    fn frexp(self) -> (Num, int) {
+        let (x, exp) = FloatMath::frexp(self.val);
+        (Num { val: x, eps: 0.0 }, exp)
+    }
+    fn next_after(self, other: Num) -> Num { Num { val: FloatMath::next_after(self.val, other.val), eps: 0.0 } }
+    fn max(self, other: Num) -> Num { Num { val: FloatMath::max(self.val, other.val), eps: 0.0 } }
+    fn min(self, other: Num) -> Num { Num { val: FloatMath::min(self.val, other.val), eps: 0.0 } }
+    fn abs_sub(self, other: Num) -> Num {
+        if self > other {
+            Num { val: FloatMath::abs_sub(self.val, other.val), eps: (self - other).eps }
+        } else {
+            Num { val: 0.0, eps: 0.0 }
+        }
+    }
+    fn cbrt(self) -> Num { Num { val: FloatMath::cbrt(self.val), eps: 1.0/3.0 * self.val.powf(-2.0/3.0) * self.eps } }
+    fn hypot(self, other: Num) -> Num {
+        Float::sqrt(Float::powi(self, 2) + Float::powi(other, 2))
+    }
+    fn sin(self) -> Num { Num { val: FloatMath::sin(self.val), eps: self.eps * FloatMath::cos(self.val) } }
+    fn cos(self) -> Num { Num { val: FloatMath::cos(self.val), eps: -self.eps * FloatMath::sin(self.val) } }
+    fn tan(self) -> Num {
+        let t = FloatMath::tan(self.val);
+        Num { val: t, eps: self.eps * (t * t + 1.0) }
+    }
+    fn asin(self) -> Num { Num { val: FloatMath::asin(self.val), eps: self.eps / Float::sqrt(1.0 - Float::powi(self.val, 2)) } }
+    fn acos(self) -> Num { Num { val: FloatMath::acos(self.val), eps: -self.eps / Float::sqrt(1.0 - Float::powi(self.val, 2)) } }
+    fn atan(self) -> Num { Num { val: FloatMath::atan(self.val), eps: self.eps / Float::sqrt(Float::powi(self.val, 2) + 1.0) } }
+    fn atan2(self, other: Num) -> Num {
+        Num {
+            val: FloatMath::atan2(self.val, other.val),
+            eps: (other.val * self.eps - self.val * other.eps) / (Float::powi(self.val, 2) + Float::powi(other.val, 2))
+        }
+    }
+    fn sin_cos(self) -> (Num, Num) {
+        let (s, c) = FloatMath::sin_cos(self.val);
+        let sn = Num { val: s, eps: self.eps * c };
+        let cn = Num { val: c, eps: -self.eps * s };
+        (sn, cn)
+    }
+    fn exp_m1(self) -> Num {
+        Num { val: FloatMath::exp_m1(self.val), eps: self.eps * Float::exp(self.val) }
+    }
+    fn ln_1p(self) -> Num {
+        Num { val: FloatMath::ln_1p(self.val), eps: self.eps / (self.val + 1.0) }
+    }
+    fn sinh(self) -> Num { Num { val: FloatMath::sinh(self.val), eps: self.eps * FloatMath::cosh(self.val) } }
+    fn cosh(self) -> Num { Num { val: FloatMath::cosh(self.val), eps: self.eps * FloatMath::sinh(self.val) } }
+    fn tanh(self) -> Num { Num { val: FloatMath::tanh(self.val), eps: self.eps * (1.0 - Float::powi(FloatMath::tanh(self.val), 2)) } }
+    fn asinh(self) -> Num { Num { val: FloatMath::asinh(self.val), eps: self.eps * (Float::powi(self.val, 2) + 1.0) } }
+    fn acosh(self) -> Num { Num { val: FloatMath::acosh(self.val), eps: self.eps * (Float::powi(self.val, 2) - 1.0) } }
+    fn atanh(self) -> Num { Num { val: FloatMath::atanh(self.val), eps: self.eps * (-Float::powi(self.val, 2) + 1.0) } }
+}
+
+/// Function for creating a constant from a float
 pub fn cst(x: f64) -> Num {
     Num { val: x, eps: 0.0 }
 }
 
+/// Evaluates the derivative of `func` at `x0`
 pub fn diff(func: |Num| -> Num, x0: f64) -> f64 {
     let x = Num { val: x0, eps: 1.0 };
     func(x).eps
 }
 
+/// Evaluates the gradient of `func` at `x0`
 pub fn grad(func: |Vec<Num>| -> Num, x0: Vec<f64>) -> Vec<f64> {
     let mut params = Vec::new();
     for x in x0.iter() {
